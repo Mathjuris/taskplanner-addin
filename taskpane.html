@@ -729,11 +729,13 @@ function initApp() {
   renderReport();
 }
 
+// Fonctionne dans Outlook ET dans un navigateur normal
 if (typeof Office !== 'undefined') {
   Office.onReady(() => initApp());
-} else {
-  window.addEventListener('load', initApp);
 }
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof Office === 'undefined') initApp();
+});
 
 // ══════════════════════════════════════════════
 //  TABS
@@ -781,17 +783,20 @@ function changeDay(delta) {
 // ══════════════════════════════════════════════
 //  PLANNING
 // ══════════════════════════════════════════════
-const WORK_START = 6; // 6h00
-const WORK_END   = 19; // 19h00
-const SLOT_DUR   = 15; // minutes
+const WORK_START = 6.5; // 6h30 — modifiez ici (6=6h00, 6.5=6h30, 7=7h00…)
+const WORK_END   = 19;  // 19h00 — modifiez ici
+const SLOT_DUR   = 30;  // minutes par créneau (15, 30 ou 60)
 
 function generateSlots(dayDate) {
   const slots = [];
-  for (let h = WORK_START; h < WORK_END; h++) {
-    for (let m = 0; m < 60; m += SLOT_DUR) {
-      const label = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-      slots.push(label);
-    }
+  // Convertir WORK_START en minutes totales pour gérer les demi-heures
+  let totalMin = Math.round(WORK_START * 60);
+  const endMin  = Math.round(WORK_END   * 60);
+  while (totalMin < endMin) {
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    slots.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    totalMin += SLOT_DUR;
   }
   return slots;
 }
