@@ -1087,8 +1087,82 @@ function assignToSlot(key, time, overrideTaskId) {
   closeAssignModal();
   renderPlanning();
   renderTasks();
+
   const task = state.tasks.find(t => t.id === taskId);
   showToast(`📅 "${task ? task.name : 'Tâche'}" planifiée`);
+
+  // ── Créer l'événement dans le calendrier Outlook ──
+  createCalendarEvent(key, time, task);
+}
+
+function createCalendarEvent(dateKey, time, task) {
+  if (!task) return;
+
+  // Construire les dates de début et de fin
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const [hour, min]        = time.split(':').map(Number);
+  const duration           = task.duration || SLOT_DUR;
+
+  const start = new Date(year, month - 1, day, hour, min, 0);
+  const end   = new Date(start.getTime() + duration * 60000);
+
+  const subject = task.project
+    ? `[${task.project}] ${task.name}`
+    : task.name;
+
+  // ── Méthode Office.js (aucun admin requis) ──
+  // Ouvre un formulaire de rendez-vous pré-rempli.
+  // L'utilisateur clique "Envoyer" / "Enregistrer" pour confirmer.
+  // Le champ showAs "free" est appliqué via la description.
+  if (typeof Office !== 'undefined' && Office.context) {
+    try {
+      // Office.js 1.1+ : displayNewAppointmentForm
+      Office.context.mailbox.displayNewAppointmentForm({
+        requiredAttendees: [],
+        optionalAttendees: [],
+        start:             start,
+        end:               end,
+        location:          '',
+        subject:           subject,
+        body:              `Tâche TaskPlanner${task.project ? ' — ' + task.project : ''}\nDurée estimée : ${duration} min\n\n⚠️ Pensez à définir le statut sur "Libre" avant d'enregistrer.`,
+      });
+      showToast('📆 Formulaire Outlook ouvert — définissez "Libre" puis enregistrez');
+      return;
+    } catch(e) {
+      console.warn('displayNewAppointmentForm non disponible :', e);
+    }
+  }
+
+  // ── Fallback navigateur : lien mailto calendrier ──
+  // Génère un fichier .ics téléchargeable
+  const fmt = d =>
+    d.toISOString().replace(/[-:]/g,'').replace('.000','');
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//TaskPlanner//FR',
+    'BEGIN:VEVENT',
+    `UID:${task.id}-${dateKey}-${time}@taskplanner`,
+    `DTSTAMP:${fmt(new Date())}`,
+    `DTSTART:${fmt(start)}`,
+    `DTEND:${fmt(end)}`,
+    `SUMMARY:${subject}`,
+    `DESCRIPTION:Tâche TaskPlanner — durée estimée ${duration} min`,
+    'TRANSP:TRANSPARENT',   // = "Libre" dans les clients calendrier
+    'STATUS:CONFIRMED',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${task.name.replace(/[^a-z0-9]/gi,'_')}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📆 Fichier .ics téléchargé — ouvrez-le pour importer dans Outlook');
 }
 
 function closeAssignModal() {
