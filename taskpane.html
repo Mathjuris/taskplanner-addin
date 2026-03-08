@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TaskPlanner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    :root {
+      --bg: #0f0f11;
+      --surface: #18181c;
+      --surface2: #222228;
+      --border: #2e2e38;
+      --accent: #c6f135;
+      --accent2: #7b61ff;
+      --text: #f0f0f0;
+      --muted: #7a7a8c;
+      --danger: #ff5e5e;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo-dot {
+      width: 8px; height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50% { opacity:.6; transform:scale(1.3); }
+    }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 0 16px;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px 4px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all .2s;
+    }
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab:hover:not(.active) { color: var(--text); }
+
+    /* ── PANELS ── */
+    .panel { display: none; padding: 16px; }
+    .panel.active { display: block; }
+
+    /* ── DATE NAVIGATOR ── */
+    .date-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .date-label {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -.3px;
+    }
+    .date-sub {
+      font-size: 10px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+    }
+    .nav-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      transition: background .15s;
+    }
+    .nav-btn:hover { background: var(--border); }
+
+    /* ── SLOTS ── */
+    .slots-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .slot {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .slot:hover { border-color: var(--accent2); background: var(--surface2); }
+    .slot.has-task { border-color: var(--accent); }
+    .slot.has-task::before {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--accent);
+    }
+    .slot-time {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 42px;
+    }
+    .slot-body { flex: 1; min-width: 0; }
+    .slot-task-name {
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .slot-project {
+      font-size: 10px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      margin-top: 2px;
+    }
+    .slot-empty-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+    }
+    .slot-badge {
+      font-size: 9px;
+      font-family: 'DM Mono', monospace;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(198,241,53,.15);
+      color: var(--accent);
+      border: 1px solid rgba(198,241,53,.3);
+      white-space: nowrap;
+    }
+    .slot-done-badge {
+      font-size: 9px;
+      font-family: 'DM Mono', monospace;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(123,97,255,.15);
+      color: #b5a8ff;
+      border: 1px solid rgba(123,97,255,.3);
+    }
+
+    /* ── TASKS PANEL ── */
+    .tasks-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .input-field {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .input-field:focus { border-color: var(--accent2); }
+    .input-field::placeholder { color: var(--muted); }
+    .btn {
+      background: var(--accent);
+      color: #0f0f11;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .5px;
+      transition: opacity .15s, transform .1s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: .85; }
+    .btn:active { transform: scale(.97); }
+    .btn-ghost {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .btn-ghost:hover { border-color: var(--accent2); }
+    .btn-danger { background: var(--danger); color: #fff; }
+
+    .task-form {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 14px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      animation: slideDown .2s ease;
+    }
+    .task-form.open { display: flex; }
+    @keyframes slideDown {
+      from { opacity:0; transform:translateY(-6px); }
+      to { opacity:1; transform:translateY(0); }
+    }
+    .form-row { display: flex; gap: 8px; }
+    .form-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .form-group { flex: 1; display: flex; flex-direction: column; }
+
+    .task-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 6px;
+      transition: border-color .15s;
+      position: relative;
+    }
+    .task-item:hover { border-color: var(--border); }
+    .task-item.done { opacity: .5; }
+    .task-item.done .task-name { text-decoration: line-through; }
+
+    .check-btn {
+      width: 18px; height: 18px;
+      border-radius: 5px;
+      border: 2px solid var(--border);
+      background: transparent;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 1px;
+      transition: all .15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .check-btn:hover { border-color: var(--accent); }
+    .check-btn.checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .check-btn.checked::after {
+      content: '✓';
+      color: #0f0f11;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .task-body { flex: 1; min-width: 0; }
+    .task-name { font-size: 13px; font-weight: 600; }
+    .task-meta {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      font-size: 9px;
+      font-family: 'DM Mono', monospace;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .tag.project { color: var(--accent2); border-color: rgba(123,97,255,.4); background: rgba(123,97,255,.1); }
+    .tag.time { color: var(--accent); border-color: rgba(198,241,53,.3); background: rgba(198,241,53,.1); }
+    .tag.logged { color: #b5a8ff; border-color: rgba(123,97,255,.3); background: rgba(123,97,255,.1); }
+
+    .task-actions {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+    }
+    .icon-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      width: 24px; height: 24px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      transition: all .15s;
+    }
+    .icon-btn:hover { border-color: var(--accent2); color: var(--text); }
+    .icon-btn.del:hover { border-color: var(--danger); color: var(--danger); }
+
+    /* ── REPORT PANEL ── */
+    .report-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .report-period {
+      display: flex;
+      gap: 6px;
+    }
+    .period-btn {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .period-btn.active {
+      background: rgba(198,241,53,.15);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+    .stat-value {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -1px;
+      font-family: 'DM Mono', monospace;
+    }
+    .stat-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      margin-top: 4px;
+    }
+
+    .project-rows { display: flex; flex-direction: column; gap: 6px; }
+    .project-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+    }
+    .project-row-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .project-row-name { font-size: 12px; font-weight: 700; }
+    .project-row-time {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+    }
+    .progress-bar {
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      border-radius: 2px;
+      transition: width .5s ease;
+    }
+
+    .export-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      width: 100%;
+      max-width: 320px;
+      animation: popIn .2s ease;
+    }
+    @keyframes popIn {
+      from { opacity:0; transform:scale(.95); }
+      to { opacity:1; transform:scale(1); }
+    }
+    .modal-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .modal-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .modal-task-name {
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .time-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .time-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 18px;
+      font-weight: 500;
+      text-align: center;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .time-input:focus { border-color: var(--accent); }
+    .time-unit {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .modal-actions { display: flex; gap: 8px; }
+    .modal-actions .btn { flex: 1; }
+
+    /* ── ASSIGN MODAL ── */
+    .slot-picker { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+    .slot-option {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: border-color .15s;
+    }
+    .slot-option:hover { border-color: var(--accent); }
+    .slot-option-time {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--accent);
+    }
+    .slot-option-dur {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(60px);
+      background: var(--surface2);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      z-index: 300;
+      transition: transform .3s ease;
+      white-space: nowrap;
+      box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--muted);
+    }
+    .empty-icon { font-size: 28px; margin-bottom: 8px; }
+    .empty-text { font-size: 12px; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    TaskPlanner
+  </div>
+  <span style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace" id="header-date"></span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('planning')">Planning</div>
+  <div class="tab" onclick="switchTab('tasks')">Tâches</div>
+  <div class="tab" onclick="switchTab('report')">Rapport</div>
+</div>
+
+<!-- ══════════════════ PLANNING PANEL ══════════════════ -->
+<div class="panel active" id="panel-planning">
+  <div class="date-nav">
+    <button class="nav-btn" onclick="changeDay(-1)">‹</button>
+    <div style="text-align:center">
+      <div class="date-label" id="day-label"></div>
+      <div class="date-sub" id="day-sub"></div>
+    </div>
+    <button class="nav-btn" onclick="changeDay(1)">›</button>
+  </div>
+  <div class="slots-list" id="slots-container"></div>
+</div>
+
+<!-- ══════════════════ TASKS PANEL ══════════════════ -->
+<div class="panel" id="panel-tasks">
+  <div class="tasks-toolbar">
+    <button class="btn" onclick="openTaskForm()">+ Nouvelle tâche</button>
+    <select class="input-field" id="filter-project" onchange="renderTasks()" style="max-width:120px;cursor:pointer">
+      <option value="">Tous projets</option>
+    </select>
+  </div>
+
+  <div class="task-form" id="task-form">
+    <div class="form-group">
+      <div class="form-label">Nom de la tâche *</div>
+      <input class="input-field" id="tf-name" placeholder="Ex: Rédiger le CR de réunion" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <div class="form-label">Projet</div>
+        <input class="input-field" id="tf-project" placeholder="Ex: Projet Alpha" />
+      </div>
+      <div class="form-group">
+        <div class="form-label">Durée (min)</div>
+        <input class="input-field" id="tf-duration" type="number" min="15" step="15" placeholder="30" />
+      </div>
+    </div>
+    <div class="form-row">
+      <button class="btn" onclick="saveTask()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeTaskForm()">Annuler</button>
+    </div>
+  </div>
+
+  <div id="tasks-container"></div>
+</div>
+
+<!-- ══════════════════ REPORT PANEL ══════════════════ -->
+<div class="panel" id="panel-report">
+  <div class="report-header">
+    <div style="font-size:14px;font-weight:800">Activité</div>
+    <div class="report-period">
+      <button class="period-btn active" onclick="setPeriod('week',this)">Semaine</button>
+      <button class="period-btn" onclick="setPeriod('month',this)">Mois</button>
+    </div>
+  </div>
+  <div class="stat-grid" id="stat-grid"></div>
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:10px">Par projet</div>
+  <div class="project-rows" id="project-rows"></div>
+  <div class="export-row">
+    <button class="btn btn-ghost" style="flex:1" onclick="exportCSV()">⬇ Export CSV</button>
+  </div>
+</div>
+
+<!-- ══════════════════ COMPLETE MODAL ══════════════════ -->
+<div class="modal-overlay" id="complete-modal">
+  <div class="modal">
+    <div class="modal-title">Tâche terminée ✓</div>
+    <div class="modal-sub">Temps passé sur <span class="modal-task-name" id="modal-task-name"></span> ?</div>
+    <div class="time-input-wrap">
+      <input class="time-input" id="modal-time" type="number" min="1" value="30" />
+      <span class="time-unit">minutes</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="confirmComplete()">Valider</button>
+      <button class="btn btn-ghost" onclick="closeCompleteModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ ASSIGN MODAL ══════════════════ -->
+<div class="modal-overlay" id="assign-modal">
+  <div class="modal">
+    <div class="modal-title">Planifier la tâche</div>
+    <div class="modal-sub">Choisissez un créneau libre pour <span class="modal-task-name" id="assign-task-name"></span></div>
+    <div class="slot-picker" id="assign-slot-picker"></div>
+    <div style="margin-top:12px">
+      <button class="btn btn-ghost" style="width:100%" onclick="closeAssignModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ TOAST ══════════════════ -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let state = {
+  tasks: [],
+  slots: {},       // date-string -> [{time, taskId}]
+  logs: [],        // {taskId, date, logged (min), estimated (min)}
+  currentDay: new Date(),
+  reportPeriod: 'week',
+  pendingCompleteTaskId: null,
+  pendingAssignTaskId: null,
+  editingTaskId: null,
+};
+
+// Persist to Office settings (or localStorage fallback)
+function save() {
+  try {
+    const data = JSON.stringify({tasks:state.tasks, slots:state.slots, logs:state.logs});
+    if (typeof Office !== 'undefined' && Office.context && Office.context.roamingSettings) {
+      Office.context.roamingSettings.set('tpdata', data);
+      Office.context.roamingSettings.saveAsync();
+    } else {
+      localStorage.setItem('tpdata', data);
+    }
+  } catch(e) {}
+}
+
+function load() {
+  try {
+    let raw;
+    if (typeof Office !== 'undefined' && Office.context && Office.context.roamingSettings) {
+      raw = Office.context.roamingSettings.get('tpdata');
+    } else {
+      raw = localStorage.getItem('tpdata');
+    }
+    if (raw) {
+      const d = JSON.parse(raw);
+      state.tasks = d.tasks || [];
+      state.slots = d.slots || {};
+      state.logs  = d.logs  || [];
+    }
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+function initApp() {
+  load();
+  updateHeaderDate();
+  renderPlanning();
+  renderTasks();
+  renderReport();
+}
+
+if (typeof Office !== 'undefined') {
+  Office.onReady(() => initApp());
+} else {
+  window.addEventListener('load', initApp);
+}
+
+// ══════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const names = ['planning','tasks','report'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if (name==='report') renderReport();
+}
+
+// ══════════════════════════════════════════════
+//  DATE HELPERS
+// ══════════════════════════════════════════════
+const DAYS_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+const MONTHS_FR = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
+const MONTHS_FULL = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+
+function dateKey(d) {
+  return d.toISOString().slice(0,10);
+}
+function isToday(d) {
+  return dateKey(d) === dateKey(new Date());
+}
+function formatDateFull(d) {
+  return `${DAYS_FR[d.getDay()]} ${d.getDate()} ${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function updateHeaderDate() {
+  const now = new Date();
+  document.getElementById('header-date').textContent =
+    `${now.getDate()} ${MONTHS_FR[now.getMonth()]}`;
+}
+
+function changeDay(delta) {
+  const d = new Date(state.currentDay);
+  d.setDate(d.getDate() + delta);
+  state.currentDay = d;
+  renderPlanning();
+}
+
+// ══════════════════════════════════════════════
+//  PLANNING
+// ══════════════════════════════════════════════
+const WORK_START = 6.5; // 6h30
+const WORK_END   = 19; // 19h00
+const SLOT_DUR   = 15; // minutes
+
+function generateSlots(dayDate) {
+  const slots = [];
+  for (let h = WORK_START; h < WORK_END; h++) {
+    for (let m = 0; m < 60; m += SLOT_DUR) {
+      const label = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      slots.push(label);
+    }
+  }
+  return slots;
+}
+
+function renderPlanning() {
+  const d = state.currentDay;
+  const key = dateKey(d);
+
+  document.getElementById('day-label').textContent =
+    isToday(d) ? 'Aujourd\'hui' : DAYS_FR[d.getDay()];
+  document.getElementById('day-sub').textContent = formatDateFull(d);
+
+  const slotMap = state.slots[key] || {};
+  const container = document.getElementById('slots-container');
+  const times = generateSlots(d);
+
+  container.innerHTML = '';
+  times.forEach(time => {
+    const assignment = slotMap[time];
+    const task = assignment ? state.tasks.find(t => t.id === assignment) : null;
+    const log = task ? state.logs.find(l => l.taskId === task.id && l.date === key) : null;
+    const isDone = task && task.done;
+
+    const el = document.createElement('div');
+    el.className = 'slot' + (task ? ' has-task' : '');
+    if (isDone) el.style.opacity = '0.55';
+
+    el.innerHTML = `
+      <span class="slot-time">${time}</span>
+      <div class="slot-body">
+        ${task
+          ? `<div class="slot-task-name">${task.name}</div>
+             ${task.project ? `<div class="slot-project">${task.project}</div>` : ''}`
+          : `<span class="slot-empty-label">Créneau libre</span>`}
+      </div>
+      ${task && task.duration ? `<span class="slot-badge">${task.duration}min</span>` : ''}
+      ${isDone && log ? `<span class="slot-done-badge">✓ ${log.logged}min</span>` : ''}
+    `;
+
+    if (!task) {
+      el.title = 'Cliquez pour assigner une tâche';
+      el.addEventListener('click', () => openAssignForSlot(key, time));
+    } else {
+      el.title = 'Tâche assignée (voir onglet Tâches)';
+    }
+
+    container.appendChild(el);
+  });
+}
+
+// ══════════════════════════════════════════════
+//  TASKS
+// ══════════════════════════════════════════════
+function openTaskForm() {
+  state.editingTaskId = null;
+  document.getElementById('tf-name').value = '';
+  document.getElementById('tf-project').value = '';
+  document.getElementById('tf-duration').value = '';
+  document.getElementById('task-form').classList.add('open');
+  document.getElementById('tf-name').focus();
+}
+function closeTaskForm() {
+  document.getElementById('task-form').classList.remove('open');
+}
+
+function saveTask() {
+  const name = document.getElementById('tf-name').value.trim();
+  if (!name) { showToast('⚠ Le nom est requis'); return; }
+  const project = document.getElementById('tf-project').value.trim();
+  const duration = parseInt(document.getElementById('tf-duration').value) || 0;
+
+  if (state.editingTaskId) {
+    const t = state.tasks.find(t => t.id === state.editingTaskId);
+    if (t) { t.name = name; t.project = project; t.duration = duration; }
+  } else {
+    state.tasks.push({
+      id: 'task-' + Date.now(),
+      name, project, duration,
+      done: false,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  save();
+  closeTaskForm();
+  updateProjectFilter();
+  renderTasks();
+  renderPlanning();
+  showToast('✓ Tâche enregistrée');
+}
+
+function renderTasks() {
+  const filter = document.getElementById('filter-project').value;
+  const container = document.getElementById('tasks-container');
+  const visible = state.tasks.filter(t => !filter || t.project === filter);
+
+  if (visible.length === 0) {
+    container.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <div class="empty-text">Aucune tâche. Créez-en une !</div>
+    </div>`;
+    return;
+  }
+
+  // Group: pending first, then done
+  const pending = visible.filter(t => !t.done);
+  const done    = visible.filter(t => t.done);
+  const ordered = [...pending, ...done];
+
+  container.innerHTML = ordered.map(task => {
+    const totalLogged = state.logs.filter(l => l.taskId === task.id).reduce((s,l) => s+l.logged, 0);
+    return `
+    <div class="task-item ${task.done ? 'done' : ''}" id="ti-${task.id}">
+      <button class="check-btn ${task.done ? 'checked' : ''}" onclick="toggleTask('${task.id}')"></button>
+      <div class="task-body">
+        <div class="task-name">${task.name}</div>
+        <div class="task-meta">
+          ${task.project ? `<span class="tag project">${task.project}</span>` : ''}
+          ${task.duration ? `<span class="tag time">~${task.duration}min</span>` : ''}
+          ${totalLogged ? `<span class="tag logged">↳ ${totalLogged}min réels</span>` : ''}
+        </div>
+      </div>
+      <div class="task-actions">
+        <button class="icon-btn" onclick="openAssignModal('${task.id}')" title="Planifier">📅</button>
+        <button class="icon-btn" onclick="editTask('${task.id}')" title="Modifier">✏️</button>
+        <button class="icon-btn del" onclick="deleteTask('${task.id}')" title="Supprimer">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleTask(id) {
+  const task = state.tasks.find(t => t.id === id);
+  if (!task) return;
+  if (!task.done) {
+    // Open complete modal
+    state.pendingCompleteTaskId = id;
+    document.getElementById('modal-task-name').textContent = task.name;
+    document.getElementById('modal-time').value = task.duration || 30;
+    document.getElementById('complete-modal').classList.add('open');
+  } else {
+    task.done = false;
+    save(); renderTasks(); renderPlanning();
+    showToast('↩ Tâche réouverte');
+  }
+}
+
+function confirmComplete() {
+  const id = state.pendingCompleteTaskId;
+  const task = state.tasks.find(t => t.id === id);
+  if (!task) return;
+  const logged = parseInt(document.getElementById('modal-time').value) || 0;
+  task.done = true;
+  state.logs.push({
+    taskId: id,
+    date: dateKey(new Date()),
+    logged,
+    estimated: task.duration || 0,
+    project: task.project || ''
+  });
+  save();
+  closeCompleteModal();
+  renderTasks();
+  renderPlanning();
+  showToast(`✓ ${logged}min enregistrées`);
+}
+
+function closeCompleteModal() {
+  document.getElementById('complete-modal').classList.remove('open');
+  state.pendingCompleteTaskId = null;
+}
+
+function editTask(id) {
+  const t = state.tasks.find(t => t.id === id);
+  if (!t) return;
+  state.editingTaskId = id;
+  document.getElementById('tf-name').value = t.name;
+  document.getElementById('tf-project').value = t.project || '';
+  document.getElementById('tf-duration').value = t.duration || '';
+  document.getElementById('task-form').classList.add('open');
+  document.getElementById('tf-name').focus();
+  switchTab('tasks');
+}
+
+function deleteTask(id) {
+  if (!confirm('Supprimer cette tâche ?')) return;
+  state.tasks = state.tasks.filter(t => t.id !== id);
+  // Also remove from slots
+  Object.keys(state.slots).forEach(dk => {
+    Object.keys(state.slots[dk]).forEach(time => {
+      if (state.slots[dk][time] === id) delete state.slots[dk][time];
+    });
+  });
+  save(); updateProjectFilter(); renderTasks(); renderPlanning();
+  showToast('🗑 Tâche supprimée');
+}
+
+function updateProjectFilter() {
+  const projects = [...new Set(state.tasks.map(t => t.project).filter(Boolean))];
+  const sel = document.getElementById('filter-project');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Tous projets</option>' +
+    projects.map(p => `<option value="${p}" ${p===current?'selected':''}>${p}</option>`).join('');
+}
+
+// ══════════════════════════════════════════════
+//  ASSIGN MODAL
+// ══════════════════════════════════════════════
+function openAssignModal(taskId) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  state.pendingAssignTaskId = taskId;
+  document.getElementById('assign-task-name').textContent = task.name;
+
+  // Show next 7 days of free slots
+  const picker = document.getElementById('assign-slot-picker');
+  picker.innerHTML = '';
+  const today = new Date();
+
+  for (let di = 0; di < 7; di++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + di);
+    if (d.getDay() === 0 || d.getDay() === 6) continue; // skip weekends
+    const key = dateKey(d);
+    const slotMap = state.slots[key] || {};
+    const times = generateSlots(d);
+    const freeSlots = times.filter(t => !slotMap[t]);
+
+    if (freeSlots.length === 0) continue;
+    // Show up to 3 free slots per day
+    freeSlots.slice(0,3).forEach(time => {
+      const el = document.createElement('div');
+      el.className = 'slot-option';
+      el.innerHTML = `
+        <span style="font-size:11px;color:var(--muted)">${DAYS_FR[d.getDay()]} ${d.getDate()} ${MONTHS_FR[d.getMonth()]}</span>
+        <span class="slot-option-time">${time}</span>
+        ${task.duration ? `<span class="slot-option-dur">${task.duration}min</span>` : ''}
+      `;
+      el.addEventListener('click', () => assignToSlot(key, time));
+      picker.appendChild(el);
+    });
+  }
+
+  if (picker.children.length === 0) {
+    picker.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">Aucun créneau libre cette semaine</div>';
+  }
+
+  document.getElementById('assign-modal').classList.add('open');
+}
+
+function openAssignForSlot(key, time) {
+  const pendingTasks = state.tasks.filter(t => !t.done);
+  if (pendingTasks.length === 0) {
+    showToast('Créez d\'abord une tâche !');
+    return;
+  }
+  // Quick assign: show task picker
+  state.pendingSlotKey = key;
+  state.pendingSlotTime = time;
+
+  const picker = document.getElementById('assign-slot-picker');
+  picker.innerHTML = '';
+  document.getElementById('assign-task-name').textContent = `${time}`;
+  document.getElementById('assign-modal').querySelector('.modal-title').textContent = 'Assigner une tâche';
+  document.getElementById('assign-modal').querySelector('.modal-sub').textContent = `Choisissez une tâche pour le créneau `;
+
+  pendingTasks.forEach(task => {
+    const el = document.createElement('div');
+    el.className = 'slot-option';
+    el.innerHTML = `
+      <span style="font-size:12px;font-weight:600">${task.name}</span>
+      ${task.project ? `<span style="font-size:10px;color:var(--accent2)">${task.project}</span>` : ''}
+      ${task.duration ? `<span class="slot-option-dur">${task.duration}min</span>` : ''}
+    `;
+    el.addEventListener('click', () => {
+      assignToSlot(key, time, task.id);
+    });
+    picker.appendChild(el);
+  });
+  document.getElementById('assign-modal').classList.add('open');
+}
+
+function assignToSlot(key, time, overrideTaskId) {
+  const taskId = overrideTaskId || state.pendingAssignTaskId;
+  if (!state.slots[key]) state.slots[key] = {};
+  state.slots[key][time] = taskId;
+  save();
+  closeAssignModal();
+  renderPlanning();
+  renderTasks();
+  const task = state.tasks.find(t => t.id === taskId);
+  showToast(`📅 "${task ? task.name : 'Tâche'}" planifiée`);
+}
+
+function closeAssignModal() {
+  document.getElementById('assign-modal').classList.remove('open');
+  state.pendingAssignTaskId = null;
+  // Reset title
+  document.getElementById('assign-modal').querySelector('.modal-title').textContent = 'Planifier la tâche';
+}
+
+// ══════════════════════════════════════════════
+//  REPORT
+// ══════════════════════════════════════════════
+function setPeriod(p, btn) {
+  state.reportPeriod = p;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderReport();
+}
+
+function getLogsForPeriod() {
+  const now = new Date();
+  return state.logs.filter(l => {
+    const d = new Date(l.date);
+    if (state.reportPeriod === 'week') {
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+      startOfWeek.setHours(0,0,0,0);
+      return d >= startOfWeek;
+    } else {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+  });
+}
+
+function renderReport() {
+  const logs = getLogsForPeriod();
+  const totalLogged = logs.reduce((s,l) => s + l.logged, 0);
+  const totalEstimated = logs.reduce((s,l) => s + l.estimated, 0);
+  const tasksDone = [...new Set(logs.map(l => l.taskId))].length;
+  const efficiency = totalEstimated > 0
+    ? Math.round((totalEstimated / totalLogged) * 100) : 0;
+
+  document.getElementById('stat-grid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-value">${Math.floor(totalLogged/60)}h${totalLogged%60 ? String(totalLogged%60).padStart(2,'0') : '00'}</div>
+      <div class="stat-label">Temps enregistré</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${tasksDone}</div>
+      <div class="stat-label">Tâches terminées</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${efficiency > 0 ? efficiency+'%' : '—'}</div>
+      <div class="stat-label">Précision estimations</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${state.reportPeriod==='week' ? Math.round(totalLogged/5) : Math.round(totalLogged/20)}<span style="font-size:12px">min</span></div>
+      <div class="stat-label">Moy. / jour</div>
+    </div>
+  `;
+
+  // By project
+  const byProject = {};
+  logs.forEach(l => {
+    const k = l.project || '(sans projet)';
+    if (!byProject[k]) byProject[k] = 0;
+    byProject[k] += l.logged;
+  });
+  const maxTime = Math.max(...Object.values(byProject), 1);
+  const projectRows = document.getElementById('project-rows');
+
+  if (Object.keys(byProject).length === 0) {
+    projectRows.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">Aucune activité sur cette période</div></div>`;
+    return;
+  }
+
+  projectRows.innerHTML = Object.entries(byProject)
+    .sort((a,b) => b[1]-a[1])
+    .map(([proj, mins]) => `
+      <div class="project-row">
+        <div class="project-row-top">
+          <span class="project-row-name">${proj}</span>
+          <span class="project-row-time">${Math.floor(mins/60)}h${mins%60 ? String(mins%60).padStart(2,'0') : '00'}</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:${Math.round(mins/maxTime*100)}%"></div>
+        </div>
+      </div>
+    `).join('');
+}
+
+// ══════════════════════════════════════════════
+//  EXPORT CSV
+// ══════════════════════════════════════════════
+function exportCSV() {
+  const logs = getLogsForPeriod();
+  if (logs.length === 0) { showToast('Aucune donnée à exporter'); return; }
+  const header = 'Date,Tâche,Projet,Estimé (min),Réel (min)\n';
+  const rows = logs.map(l => {
+    const task = state.tasks.find(t => t.id === l.taskId);
+    return `${l.date},"${task ? task.name : 'N/A'}","${l.project || ''}",${l.estimated},${l.logged}`;
+  }).join('\n');
+  const blob = new Blob([header + rows], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `activite_${state.reportPeriod}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('⬇ Export CSV téléchargé');
+}
+
+// ══════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ══════════════════════════════════════════════
+//  KEYBOARD
+// ══════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeCompleteModal();
+    closeAssignModal();
+    closeTaskForm();
+  }
+});
+</script>
+</body>
+</html>
